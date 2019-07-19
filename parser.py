@@ -11,12 +11,15 @@ import time
 import sys
 
 def GetDir():
-    logDir = '/Users/kevin_y_kuo/Documents/Log/'
-    caseDir = '/Users/kevin_y_kuo/Documents/Case/'
-    outputDir = '/Users/kevin_y_kuo/Documents/Output/'
-    
+    logDir = '/Users/kevin_y_kuo/Trend/Log/'
+    caseDir = '/Users/kevin_y_kuo/Trend/Case/'
+    outputDir = '/Users/kevin_y_kuo/Trend/Output/'
+    '''
+    logDir = input('Please enter a folder address where "log files" is stored : ')
+    caseDir = input('Please enter a folder address where "case files" is stored : ')
+    outputDir = input('Please enter a folder address where "you want to output" : ')
+    '''
     return logDir, caseDir, outputDir
-
 
 
 def SortAndRename(logDir):
@@ -44,15 +47,26 @@ def OriginName(logDir):
     for log in os.listdir(logDir):
         os.rename(logDir+log,logDir+log.split("-")[1])
 
+def chooseType():
+    parameter = input('demand: ')
+    if parameter == "-a":
+        temp = "all"
+    if parameter == "-s":
+        temp = "single"
+    if parameter == "-p":
+        temp = "paired"
+    return temp
+        
+
 def mkdir(path):
+    # 建立目錄，並會先判斷此目錄是否存在
     isExists = os.path.exists(path)
-    # 判斷结果
     if not isExists:
         os.makedirs(path)
-    
     return path+'/'   # 路徑for macOS，若要在windows上執行，則改成+'\'
 
 def SingleParser(f, key):
+    # log single keyword parser implement
     keywords = []
     for line in key:
         keywords.append(line.strip())
@@ -67,12 +81,13 @@ def SingleParser(f, key):
 
 
 def PairedParser(f, key):
+    # log paired keyword parser implement   # 會印出不成對的部分，成對則不印出
     keyword = []
     for line in key:
         keyword.append(line.strip())
     
     count = 0  #設定一判斷標準，若最後count=0則刪除此檔案，因為檔案為空檔案
-    pair = 0
+    pair = 0  # pair為成對與否的判斷依據，初始為0，遇到former則＋1，遇到latter則減1
     line_list = []
     
     for line in f:
@@ -95,7 +110,7 @@ def PairedParser(f, key):
         if pair == 2:
             str_line_list = "\n".join(line_list)
             print(str_line_list)
-            # 因為pair==2的情況是發生在碰到第二個keyword[0]，elif結束後要回到pair==1才可繼續搜尋
+            # 因為pair==2的情況是發生在碰到第二個keyword[0]，if結束後要回到pair==1才可繼續搜尋
             pair = 1  
             # 搜尋到第二次keyword[0]，刪除全部後，再加入此次的line值
             line_list = []
@@ -105,43 +120,47 @@ def PairedParser(f, key):
     if pair == 1:   #  到檔案尾時，若pair==1，表示仍有不成對，故也需print出到新文件
         str_line_list = "\n".join(line_list)
         print(str_line_list)
-    
     return count
 
 
 
 
 def main():
+    temp = chooseType()
     for log in os.listdir(logDir):
         log_name, log_extension = os.path.splitext(log)
         logname = "_".join(log_name.split("-")[1:])
         for case in os.listdir(caseDir):
-            case_name ,case_extension = os.path.splitext(case)
-            casename = "_".join(case_name.split("_")[1:])
-            casetype = "_".join(case_name.split("_")[:1])
-
-            output = sys.stdout      # store original stdout object for later
-            
-            path = mkdir(outputDir+casetype)
-            
-            with open(logDir+log,'r', encoding="utf-16") as f, open(caseDir+case) as key:
-                sys.stdout = open(path+log_name+'<'+casename+'>.txt', 'w')      # redirect all prints to this log file
+            if not temp in case and temp != "all":
+                continue
+            else:
+                case_name ,case_extension = os.path.splitext(case)
+                casename = "_".join(case_name.split("_")[1:])
+    
+                output = sys.stdout      # store original stdout object for later
                 
-                print(logname+'<'+casename+'>'+'\n')
-                if casetype == "Single":
-                    count = SingleParser(f, key)
-                    print(count)
-                if casetype == "Paired":
-                    count = PairedParser(f, key)
-                    print(count)
+                if temp == "all":
+                    casetype = "_".join(case_name.split("_")[:1])
+                else:
+                    casetype = temp
                     
-                #count = ChooseCase(f, key, casetype)
+                path = mkdir(outputDir+casetype)
                 
-                sys.stdout.close()                # ordinary file object
-                sys.stdout = output             # restore print commands to interactive prompt   
-                
-            if count == 0:
-                os.remove(path+log_name+'<'+casename+'>.txt')
+                with open(logDir+log,'r', encoding="utf-16") as f, open(caseDir+case) as key:
+                    sys.stdout = open(path+log_name+'<'+casename+'>.txt', 'w')      # redirect all prints to this log file
+                    print(logname+'<'+casename+'>'+'\n')
+                    
+                    # 決定要使用哪種parser
+                    if casetype == "single":
+                        count = SingleParser(f, key)
+                    if casetype == "paired":
+                        count = PairedParser(f, key)
+                    
+                    sys.stdout.close()              # ordinary file object
+                    sys.stdout = output             # restore print commands to interactive prompt   
+                    
+                if count == 0:      # 檔案為空，刪除此檔案
+                    os.remove(path+log_name+'<'+casename+'>.txt')
 
 
 
@@ -149,6 +168,6 @@ if __name__ == '__main__':
     logDir, caseDir, outputDir = GetDir()
     SortAndRename(logDir)
     main()
-    # OriginName(logDir) 
+    OriginName(logDir) 
     
     
