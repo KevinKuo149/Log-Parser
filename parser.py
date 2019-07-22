@@ -45,16 +45,20 @@ def SortAndRename(logDir):
 def OriginName(logDir):
     # 將被編號的檔案名稱還原
     for log in os.listdir(logDir):
-        os.rename(logDir+log,logDir+log.split("-")[1])
+        if log == ".DS_Store":
+            continue
+        else:
+            os.rename(logDir+log,logDir+log.split("-")[1])
 
 def chooseType():
-    parameter = input('demand: ')
+    parameter = input('command: ')
     if parameter == "-a":
         temp = "all"
-    if parameter == "-s":
-        temp = "single"
-    if parameter == "-p":
-        temp = "paired"
+    else:
+        if parameter == "-s":
+            temp = "single"
+        if parameter == "-p":
+            temp = "pair"
     return temp
         
 
@@ -64,6 +68,7 @@ def mkdir(path):
     if not isExists:
         os.makedirs(path)
     return path+'/'   # 路徑for macOS，若要在windows上執行，則改成+'\'
+
 
 def SingleParser(f, key):
     # log single keyword parser implement
@@ -128,39 +133,43 @@ def PairedParser(f, key):
 def main():
     temp = chooseType()
     for log in os.listdir(logDir):
-        log_name, log_extension = os.path.splitext(log)
-        logname = "_".join(log_name.split("-")[1:])
-        for case in os.listdir(caseDir):
-            if not temp in case and temp != "all":
-                continue
-            else:
-                case_name ,case_extension = os.path.splitext(case)
-                casename = "_".join(case_name.split("_")[1:])
-    
-                output = sys.stdout      # store original stdout object for later
-                
-                if temp == "all":
-                    casetype = "_".join(case_name.split("_")[:1])
+        if log == ".DS_Store":
+            continue
+        else:
+            log_name, log_extension = os.path.splitext(log)
+            logname = "_".join(log_name.split("-")[1:])
+            for case in os.listdir(caseDir):
+                if not temp in case and temp != "all":
+                    continue
                 else:
-                    casetype = temp
+                    case_name ,case_extension = os.path.splitext(case)
+                    casename = "_".join(case_name.split("_")[1:])
+        
+                    output = sys.stdout      # store original stdout object for later
                     
-                path = mkdir(outputDir+casetype)
-                
-                with open(logDir+log,'r', encoding="utf-16") as f, open(caseDir+case) as key:
-                    sys.stdout = open(path+log_name+'<'+casename+'>.txt', 'w')      # redirect all prints to this log file
-                    print(logname+'<'+casename+'>'+'\n')
+                    if temp == "all":
+                        casetype = "_".join(case_name.split("_")[:1])
+                    else:
+                        casetype = temp
+                        
+                    path = mkdir(outputDir+casetype)
                     
-                    # 決定要使用哪種parser
-                    if casetype == "single":
-                        count = SingleParser(f, key)
-                    if casetype == "paired":
-                        count = PairedParser(f, key)
-                    
-                    sys.stdout.close()              # ordinary file object
-                    sys.stdout = output             # restore print commands to interactive prompt   
-                    
-                if count == 0:      # 檔案為空，刪除此檔案
-                    os.remove(path+log_name+'<'+casename+'>.txt')
+                    with open(logDir+log,'r', encoding="utf-16") as f, open(caseDir+case) as key:
+                        sys.stdout = open(path+log_name+'<'+casename+'>.txt', 'w')      # redirect all prints to this log file
+                        print(logname+'<'+casename+'>'+'\n')
+                        
+                        # 決定要使用哪種parser
+                        if casetype == "single":
+                            count = SingleParser(f, key)
+                        if casetype == "pair":
+                            count = PairedParser(f, key)
+                        
+                        sys.stdout.close()              # ordinary file object
+                        sys.stdout = output             # restore print commands to interactive prompt   
+                        
+                    if count == 0:      # 檔案為空，刪除此檔案
+                        os.remove(path+log_name+'<'+casename+'>.txt')
+                        #print(count)
 
 
 
