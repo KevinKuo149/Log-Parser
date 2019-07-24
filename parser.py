@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jul 17 15:01:01 2019
+Created on Tue Jul 23 17:59:13 2019
 
 @author: kevin_y_kuo
 """
-
+#%%
 import os
 import time
-import sys
+import re
+import datetime
 
-def GetDir():
+
+def getDir():
+
     logDir = '/Users/kevin_y_kuo/Trend/Log/'
     caseDir = '/Users/kevin_y_kuo/Trend/Case/'
     outputDir = '/Users/kevin_y_kuo/Trend/Output/'
@@ -22,55 +25,61 @@ def GetDir():
     return logDir, caseDir, outputDir
 
 
-def SortAndRename(logDir):
-    # 依照檔案修改日期排序
+def matchDate(line):
+    matchThis = ""
+    matched = re.match(r'\d\d\d\d/\d\d/\d\d\ \d\d:\d\d:\d\d.\d\d\d',line)  # 2018/03/14 13:53:18.266
+    if matched:
+        matchThis = matched.group()
+    else:
+        matchThis = "NONE"
+    return matchThis
+
+
+# 不要rename
+def sortFiles(logDir):
     date_file_list = []
-    for f in os.scandir(logDir):
-        if f.name.endswith(".log"):
+    for file in os.scandir(logDir):
+        if file.name.endswith(".log"):
             #print(f.name)
-            t = os.stat(f)
+            t = os.stat(file)
             lastmod_date = time.localtime(t.st_mtime)  #最後修改日期時間
             #print(time.strftime('%Y-%m-%d,%H:%M:%S', lastmod_date))
-            date_file_tuple = lastmod_date, f.name
+            date_file_tuple = lastmod_date, file.name
             date_file_list.append(date_file_tuple)
     date_file_list.sort()
-    
-    # 依照檔案順序重新命名
-    x = 0
-    for sfile in date_file_list:
-        NewFileName = str(x).zfill(3) + '-' + sfile[1]
-        os.rename(logDir+sfile[1],logDir+NewFileName)
-        x += 1
+    sort_log = []
+    for i in range(len(date_file_list)):
+        sort_log.append(date_file_list[i][1])
+    return sort_log
 
-def OriginName(logDir):
-    # 將被編號的檔案名稱還原
+
+def testTime(logDir):
+    #log_datetime_list = []
+    log_datefile_list = []
     for log in os.listdir(logDir):
         if log == ".DS_Store":
             continue
         else:
-            os.rename(logDir+log,logDir+log.split("-")[1])
+            with open(logDir+log,'r', encoding="utf-16") as log_file:
+                logname, logextension = os.path.splitext(log)
+                for line in log_file:
+                    date = matchDate(line)
+                    if date == "NONE":
+                        continue
+                    else:
+                        date_time_obj = datetime.datetime.strptime(date, '%Y/%m/%d %H:%M:%S.%f')
+                        #log_datetime_list.append(date_time_obj)
+                        break
+                date_file_tuple = date_time_obj, logname
+                log_datefile_list.append(date_file_tuple)
+    log_datefile_list.sort()
+    sort_log = []
+    for i in range(len(log_datefile_list)):
+        sort_log.append(log_datefile_list[i][1])
+    return sort_log
+    
 
-def chooseType():
-    parameter = input('command: ')
-    if parameter == "-a":
-        temp = "all"
-    else:
-        if parameter == "-s":
-            temp = "single"
-        if parameter == "-p":
-            temp = "pair"
-    return temp
-        
-
-def mkdir(path):
-    # 建立目錄，並會先判斷此目錄是否存在
-    isExists = os.path.exists(path)
-    if not isExists:
-        os.makedirs(path)
-    return path+'/'   # 路徑for macOS，若要在windows上執行，則改成+'\'
-
-
-def SingleParser(f, key):
+def singleParser(f, key, output_file):
     # log single keyword parser implement
     keywords = []
     for line in key:
@@ -81,11 +90,10 @@ def SingleParser(f, key):
         for keyword in keywords:
             if keyword in line:
                 count += 1
-                print(line)
-    return count
+                output_file.write(line)
 
 
-def PairedParser(f, key):
+def pairedParser(f, key, output_file):
     # log paired keyword parser implement   # 會印出不成對的部分，成對則不印出
     keyword = []
     for line in key:
@@ -94,6 +102,12 @@ def PairedParser(f, key):
     count = 0  #設定一判斷標準，若最後count=0則刪除此檔案，因為檔案為空檔案
     pair = 0  # pair為成對與否的判斷依據，初始為0，遇到former則＋1，遇到latter則減1
     line_list = []
+    
+    
+    '''
+    檢查是否keyword為空
+    if...
+    '''
     
     for line in f:
         if pair == 0:
@@ -113,8 +127,8 @@ def PairedParser(f, key):
                 line_list.append(line)
                 continue
         if pair == 2:
-            str_line_list = "\n".join(line_list)
-            print(str_line_list)
+            str_line_list = "".join(line_list)
+            output_file.write(str_line_list)
             # 因為pair==2的情況是發生在碰到第二個keyword[0]，if結束後要回到pair==1才可繼續搜尋
             pair = 1  
             # 搜尋到第二次keyword[0]，刪除全部後，再加入此次的line值
@@ -123,60 +137,42 @@ def PairedParser(f, key):
             str_line_list = []
             
     if pair == 1:   #  到檔案尾時，若pair==1，表示仍有不成對，故也需print出到新文件
-        str_line_list = "\n".join(line_list)
-        print(str_line_list)
-    return count
+        str_line_list = "".join(line_list)
+        output_file.write(str_line_list)
 
 
 
-
+#%%
 def main():
-    temp = chooseType()
-    for log in os.listdir(logDir):
-        if log == ".DS_Store":
-            continue
-        else:
-            log_name, log_extension = os.path.splitext(log)
-            logname = "_".join(log_name.split("-")[1:])
-            for case in os.listdir(caseDir):
-                if not temp in case and temp != "all":
-                    continue
-                else:
-                    case_name ,case_extension = os.path.splitext(case)
-                    casename = "_".join(case_name.split("_")[1:])
+    for case in os.listdir(caseDir):
+        casename ,caseextension = os.path.splitext(case)
+        casename_realname = "_".join(casename.split("_")[1:])
+        casename_type = "_".join(casename.split("_")[:1])
         
-                    output = sys.stdout      # store original stdout object for later
-                    
-                    if temp == "all":
-                        casetype = "_".join(case_name.split("_")[:1])
-                    else:
-                        casetype = temp
-                        
-                    path = mkdir(outputDir+casetype)
-                    
-                    with open(logDir+log,'r', encoding="utf-16") as f, open(caseDir+case) as key:
-                        sys.stdout = open(path+log_name+'<'+casename+'>.txt', 'w')      # redirect all prints to this log file
-                        print(logname+'<'+casename+'>'+'\n')
-                        
-                        # 決定要使用哪種parser
-                        if casetype == "single":
-                            count = SingleParser(f, key)
-                        if casetype == "pair":
-                            count = PairedParser(f, key)
-                        
-                        sys.stdout.close()              # ordinary file object
-                        sys.stdout = output             # restore print commands to interactive prompt   
-                        
-                    if count == 0:      # 檔案為空，刪除此檔案
-                        os.remove(path+log_name+'<'+casename+'>.txt')
-                        #print(count)
+        output_file = open(outputDir+casename_realname+'.log', 'w', encoding="utf-16")
+        
+        for log in sort_log:
+            if log == ".DS_Store":
+                continue
+            else:
+                logname, logextension = os.path.splitext(log)
+                output_file.write('< '+logname+' >\n')
+                
+                with open(logDir+log,'r', encoding="utf-16") as log_file, open(caseDir+case) as case_file:
+                    # 決定要使用哪種parser
+                    if casename_type == "single":
+                        singleParser(log_file, case_file, output_file)  
+                    if casename_type == "pair":
+                        pairedParser(log_file, case_file, output_file)
+            output_file.write("\n\n\n")
+        output_file.close()
 
 
-
+#%%
 if __name__ == '__main__':
-    logDir, caseDir, outputDir = GetDir()
-    SortAndRename(logDir)
+    logDir, caseDir, outputDir = getDir()
+    sort_log1 = sortFiles(logDir)
+    sort_log = testTime(logDir)
     main()
-    OriginName(logDir) 
-    
+
     
