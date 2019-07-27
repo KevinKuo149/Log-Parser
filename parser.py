@@ -5,11 +5,14 @@ Created on Tue Jul 23 17:59:13 2019
 
 @author: kevin_y_kuo
 """
-#%%
+
 import os
-import time
 import re
 import datetime
+import csv
+import pandas as pd
+from collections import Counter
+
 
 
 def getDir():
@@ -35,33 +38,14 @@ def matchDate(line):
     return matchThis
 
 
-# 不要rename
-def sortFiles(logDir):
-    date_file_list = []
-    for file in os.scandir(logDir):
-        if file.name.endswith(".log"):
-            #print(f.name)
-            t = os.stat(file)
-            lastmod_date = time.localtime(t.st_mtime)  #最後修改日期時間
-            #print(time.strftime('%Y-%m-%d,%H:%M:%S', lastmod_date))
-            date_file_tuple = lastmod_date, file.name
-            date_file_list.append(date_file_tuple)
-    date_file_list.sort()
-    sort_log = []
-    for i in range(len(date_file_list)):
-        sort_log.append(date_file_list[i][1])
-    return sort_log
-
-
-def testTime(logDir):
-    #log_datetime_list = []
+# 依log檔內第一個日期為依據，對檔案進行排序
+def datetime_Sortfile(logDir):
     log_datefile_list = []
     for log in os.listdir(logDir):
         if log == ".DS_Store":
             continue
         else:
             with open(logDir+log,'r', encoding="utf-16") as log_file:
-                logname, logextension = os.path.splitext(log)
                 for line in log_file:
                     date = matchDate(line)
                     if date == "NONE":
@@ -70,35 +54,45 @@ def testTime(logDir):
                         date_time_obj = datetime.datetime.strptime(date, '%Y/%m/%d %H:%M:%S.%f')
                         #log_datetime_list.append(date_time_obj)
                         break
-                date_file_tuple = date_time_obj, logname
+                date_file_tuple = date_time_obj, log
                 log_datefile_list.append(date_file_tuple)
     log_datefile_list.sort()
     sort_log = []
     for i in range(len(log_datefile_list)):
         sort_log.append(log_datefile_list[i][1])
     return sort_log
-    
 
-def singleParser(f, key, output_file):
+
+
+def single_Parser(log_file, keyword_list, temp_log):
     # log single keyword parser implement
-    keywords = []
-    for line in key:
-        keywords.append(line.strip())
-    
     count = 0 #設定一判斷標準，若最後count=0則刪除此檔案，因為檔案為空檔案
-    for line in f:
-        for keyword in keywords:
-            if keyword in line:
+    for line in log_file:
+        for one_keyword in keyword_list:
+            if one_keyword in line:
                 count += 1
-                output_file.write(line)
+                temp_log = temp_log + line
+    return temp_log, count
 
 
-def pairedParser(f, key, output_file):
+def catch_Parser(log_file, keyword_list, temp_log):
+    count = 0
+    catch_area = ''
+    for line in log_file:
+        if keyword_list[0] and keyword_list[1] in line:
+            temp_log += line
+            count += 1
+            catch_area += (line.split("path = ")[1].split(".exe via")[0] + '\n')
+    return temp_log, count, catch_area
+
+
+def notpaired_Parser(log_file, keyword_list, temp_log):
     # log paired keyword parser implement   # 會印出不成對的部分，成對則不印出
+    '''
     keyword = []
     for line in key:
         keyword.append(line.strip())
-    
+    '''
     count = 0  #設定一判斷標準，若最後count=0則刪除此檔案，因為檔案為空檔案
     pair = 0  # pair為成對與否的判斷依據，初始為0，遇到former則＋1，遇到latter則減1
     line_list = []
@@ -109,17 +103,17 @@ def pairedParser(f, key, output_file):
     if...
     '''
     
-    for line in f:
+    for line in log_file:
         if pair == 0:
-            if keyword[0] in line:
+            if keyword_list[0] in line:
                 count += 1
                 pair += 1
                 line_list.append(line)
             continue
         if pair == 1:
-            if keyword[0] in line:
+            if keyword_list[0] in line:
                 pair += 1    # 加完pair變成2，會直接跳"if pair==2:"
-            elif keyword[1] in line:
+            elif keyword_list[1] in line:
                 pair -= 1
                 line_list = []
                 continue
@@ -128,7 +122,8 @@ def pairedParser(f, key, output_file):
                 continue
         if pair == 2:
             str_line_list = "".join(line_list)
-            output_file.write(str_line_list)
+            temp_log = temp_log + str_line_list
+            #output_file.write(str_line_list)
             # 因為pair==2的情況是發生在碰到第二個keyword[0]，if結束後要回到pair==1才可繼續搜尋
             pair = 1  
             # 搜尋到第二次keyword[0]，刪除全部後，再加入此次的line值
@@ -138,41 +133,70 @@ def pairedParser(f, key, output_file):
             
     if pair == 1:   #  到檔案尾時，若pair==1，表示仍有不成對，故也需print出到新文件
         str_line_list = "".join(line_list)
-        output_file.write(str_line_list)
+        #output_file.write(str_line_list)
+        temp_log = temp_log + str_line_list
+    return temp_log, count
 
 
 
-#%%
+
 def main():
     for case in os.listdir(caseDir):
-        casename ,caseextension = os.path.splitext(case)
-        casename_realname = "_".join(casename.split("_")[1:])
-        casename_type = "_".join(casename.split("_")[:1])
+        casename ,caseextension = os.path.splitext(case)  # ex: casename=>"single_crash" ; caseextension=>".txt"
+        casename_realname = "_".join(casename.split("_")[1:])  # casename_realname=>"crash"
+        casename_type = "_".join(casename.split("_")[:1])  # casename_type=>"single"
         
-        output_file = open(outputDir+casename_realname+'.log', 'w', encoding="utf-16")
+        # temporary storage keywords
+        keyword_list = []
+        with open(caseDir+case) as case_file:
+            for line in case_file:
+                keyword_list.append(line.strip())   
+        
+        output_file = open(outputDir+casename_realname+'.log', 'w', encoding="utf-16")  # create output file
+        catch_text = ""
+        boolean = bool(0)
         
         for log in sort_log:
+            temp_log = ""
             if log == ".DS_Store":
                 continue
             else:
                 logname, logextension = os.path.splitext(log)
-                output_file.write('< '+logname+' >\n')
                 
-                with open(logDir+log,'r', encoding="utf-16") as log_file, open(caseDir+case) as case_file:
-                    # 決定要使用哪種parser
+                with open(logDir+log,'r', encoding="utf-16") as log_file:
+                    # Design to use which parser 
                     if casename_type == "single":
-                        singleParser(log_file, case_file, output_file)  
-                    if casename_type == "pair":
-                        pairedParser(log_file, case_file, output_file)
-            output_file.write("\n\n\n")
+                        temp_log, count = single_Parser(log_file, keyword_list, temp_log)  
+                    if casename_type == "notpair":
+                        temp_log, count = notpaired_Parser(log_file, keyword_list, temp_log)
+                    if casename_type == "catch":
+                        temp_log, count, catch_area = catch_Parser(log_file, keyword_list, temp_log)   
+                        catch_text += catch_area
+
+            # print output data on the output file
+            if temp_log != "":
+                boolean = bool(1)
+                output_file.write('< '+logname+' >  keyword counting:'+ str(count) +'\n')
+                output_file.write(temp_log)
+                output_file.write('\n\n\n')
         output_file.close()
+        # delete the empty file
+        if not boolean == bool(1):
+            os.remove(outputDir+casename_realname+'.log')
+            
+        if casename_type == "catch":
+            catch_list = catch_text.split('\n')
+            catch_counting = Counter(catch_list)
+            with open(outputDir+casename_realname+'.csv', 'w') as csv_file:
+                w = csv.writer(csv_file)
+                w.writerows(catch_counting.items())
+    
 
 
-#%%
+
 if __name__ == '__main__':
     logDir, caseDir, outputDir = getDir()
-    sort_log1 = sortFiles(logDir)
-    sort_log = testTime(logDir)
+    sort_log = datetime_Sortfile(logDir)
     main()
 
     
