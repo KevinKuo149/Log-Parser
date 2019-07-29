@@ -10,7 +10,6 @@ import os
 import re
 import datetime
 import csv
-import pandas as pd
 from collections import Counter
 
 
@@ -71,19 +70,30 @@ def single_Parser(log_file, keyword_list, temp_log):
         for one_keyword in keyword_list:
             if one_keyword in line:
                 count += 1
-                temp_log = temp_log + line
+                temp_log += line
+                continue
     return temp_log, count
-
 
 def catch_Parser(log_file, keyword_list, temp_log):
     count = 0
-    catch_area = ''
+    catch_area = ""
     for line in log_file:
-        if keyword_list[0] and keyword_list[1] in line:
+        if keyword_list[0] in line and keyword_list[1] in line:
             temp_log += line
             count += 1
-            catch_area += (line.split("path = ")[1].split(".exe via")[0] + '\n')
+            catch_area += (line.split(keyword_list[0])[1].split(keyword_list[1])[0] + '.exe\n')
     return temp_log, count, catch_area
+
+def exclude_Parser(log_file, keyword_list, temp_log):
+    count = 0
+    for line in log_file:
+        for one_keyword in keyword_list:
+            if one_keyword in line:
+                count += 1
+            else:
+                temp_log += line
+    return temp_log, count
+                
 
 
 def notpaired_Parser(log_file, keyword_list, temp_log):
@@ -142,6 +152,7 @@ def notpaired_Parser(log_file, keyword_list, temp_log):
 
 def main():
     for case in os.listdir(caseDir):
+        #print(case)
         casename ,caseextension = os.path.splitext(case)  # ex: casename=>"single_crash" ; caseextension=>".txt"
         casename_realname = "_".join(casename.split("_")[1:])  # casename_realname=>"crash"
         casename_type = "_".join(casename.split("_")[:1])  # casename_type=>"single"
@@ -172,11 +183,13 @@ def main():
                     if casename_type == "catch":
                         temp_log, count, catch_area = catch_Parser(log_file, keyword_list, temp_log)   
                         catch_text += catch_area
+                    if casename_type == "exclude":
+                        temp_log, count = exclude_Parser(log_file, keyword_list, temp_log)
 
             # print output data on the output file
             if temp_log != "":
                 boolean = bool(1)
-                output_file.write('< '+logname+' >  keyword counting:'+ str(count) +'\n')
+                output_file.write('< '+logname+' >  ' + casename_realname +' counting:'+ str(count) +'\n')
                 output_file.write(temp_log)
                 output_file.write('\n\n\n')
         output_file.close()
@@ -184,7 +197,7 @@ def main():
         if not boolean == bool(1):
             os.remove(outputDir+casename_realname+'.log')
             
-        if casename_type == "catch":
+        if casename_type == "catch" and catch_text != "":
             catch_list = catch_text.split('\n')
             catch_counting = Counter(catch_list)
             with open(outputDir+casename_realname+'.csv', 'w') as csv_file:
