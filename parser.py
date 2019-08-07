@@ -15,7 +15,6 @@ from collections import Counter
 
 
 def getDir():
-
     logDir = '/Users/kevin_y_kuo/Trend/Log/'
     caseDir = '/Users/kevin_y_kuo/Trend/Case/'
     outputDir = '/Users/kevin_y_kuo/Trend/Output/'
@@ -62,16 +61,36 @@ def datetime_Sortfile(logDir):
     return sort_log
 
 
+def choose_Parser(log_file, casetype, keyword_list, catch_text):
+    temp_log = ""
+    # Design to use which parser 
+    if casetype == "single":
+        temp_log, count = single_Parser(log_file, keyword_list, temp_log)
+        return temp_log, count
+    if casetype == "unpair":
+        temp_log, count = unpaired_Parser(log_file, keyword_list, temp_log)
+        return temp_log, count
+    if casetype == "exclude":
+        temp_log, count = exclude_Parser(log_file, keyword_list, temp_log)
+        return temp_log, count
+    if casetype == "seconds":
+        temp_log, count = seconds_Parser(log_file, keyword_list, temp_log)
+        return temp_log, count
+    if casetype == "catch":
+        temp_log, count, catch_area = catch_Parser(log_file, keyword_list, temp_log)   
+        catch_text += catch_area
+        return temp_log, count, catch_text
+    
 
 def single_Parser(log_file, keyword_list, temp_log):
     # log single keyword parser implement
-    count = 0 #設定一判斷標準，若最後count=0則刪除此檔案，因為檔案為空檔案
+    count = 0
     for line in log_file:
         for one_keyword in keyword_list:
             if one_keyword in line:
                 count += 1
                 temp_log += line
-                continue
+                break
     return temp_log, count
 
 def catch_Parser(log_file, keyword_list, temp_log):
@@ -95,23 +114,33 @@ def exclude_Parser(log_file, keyword_list, temp_log):
     return temp_log, count
                 
 
+def seconds_Parser(log_file, keyword_list, temp_log):
+    # re.findall(r'(\d*\.\d*).seconds',string)
+    # re.findall(r'(\d*).milli seconds',string)
+    count = 0
+    
+    for line in log_file:
+        if keyword_list[1] in line:
+            count += 1
+            if int("".join(re.findall(r'(\d*).milli seconds',line))) >= 1000:
+                temp_log += "-----------------------long seconds-------------------------\n"
+            temp_log += line
+        
+        elif keyword_list[0] in line:
+            count += 1
+            if ("".join(re.findall(r'(\d*\.\d*).seconds',line))) != "":
+                if float("".join(re.findall(r'(\d*\.\d*).seconds',line))) >= 1:
+                    temp_log += "-----------------------long seconds-------------------------\n"
+                temp_log += line
+        
+    return temp_log, count
+            
 
-def notpaired_Parser(log_file, keyword_list, temp_log):
-    # log paired keyword parser implement   # 會印出不成對的部分，成對則不印出
-    '''
-    keyword = []
-    for line in key:
-        keyword.append(line.strip())
-    '''
-    count = 0  #設定一判斷標準，若最後count=0則刪除此檔案，因為檔案為空檔案
+def unpaired_Parser(log_file, keyword_list, temp_log):
+    # log unpaired keyword parser implement
+    count = 0  
     pair = 0  # pair為成對與否的判斷依據，初始為0，遇到former則＋1，遇到latter則減1
     line_list = []
-    
-    
-    '''
-    檢查是否keyword為空
-    if...
-    '''
     
     for line in log_file:
         if pair == 0:
@@ -148,68 +177,78 @@ def notpaired_Parser(log_file, keyword_list, temp_log):
     return temp_log, count
 
 
+def caseData(case, caseDir):
+    casename ,caseextension = os.path.splitext(case)  # ex: casename=>"single_crash" ; caseextension=>".txt"
+    casename_realname = "_".join(casename.split("_")[1:])  # casename_realname=>"crash"
+    casename_type = "_".join(casename.split("_")[:1])  # casename_type=>"single"
+    
+    # temporary storage keywords
+    keyword_list = []
+    with open(caseDir+case) as case_file:
+        for line in case_file:
+            keyword_list.append(line.strip())
+    return casename_type ,casename_realname, keyword_list
 
 
+
+def output_logFile(output_target, output_log):
+    # output log files
+    output_file = open(output_target+'.log', 'w', encoding="utf-16")  # Create the output file
+    output_file.write(output_log)
+    output_file.close()
+
+
+def output_csvFile(output_target, casetype, catch_text):
+    # output csv files ＆ count different text
+    if casetype == "catch" and catch_text != "":
+        catch_list = catch_text.split('\n')
+        catch_counting = Counter(catch_list)
+        with open(output_target+'.csv', 'w') as csv_file:
+            w = csv.writer(csv_file)
+            w.writerows(catch_counting.items())
+    
+    
 def main():
+    logDir, caseDir, outputDir = getDir()
+    sort_log = datetime_Sortfile(logDir)
+    
     for case in os.listdir(caseDir):
-        #print(case)
-        casename ,caseextension = os.path.splitext(case)  # ex: casename=>"single_crash" ; caseextension=>".txt"
-        casename_realname = "_".join(casename.split("_")[1:])  # casename_realname=>"crash"
-        casename_type = "_".join(casename.split("_")[:1])  # casename_type=>"single"
+        casetype, casename, keyword_list = caseData(case, caseDir)
+        output_target = outputDir+casename
+        # Ｎo keyword in this case file, skip to next case file.
+        if keyword_list == []:
+            continue
         
-        # temporary storage keywords
-        keyword_list = []
-        with open(caseDir+case) as case_file:
-            for line in case_file:
-                keyword_list.append(line.strip())   
-        
-        output_file = open(outputDir+casename_realname+'.log', 'w', encoding="utf-16")  # create output file
-        catch_text = ""
         boolean = bool(0)
-        
+        catch_text = ""     # Initial catch_text prepare to store catch_area
+        output_log = ""
         for log in sort_log:
-            temp_log = ""
             if log == ".DS_Store":
                 continue
             else:
                 logname, logextension = os.path.splitext(log)
-                
                 with open(logDir+log,'r', encoding="utf-16") as log_file:
-                    # Design to use which parser 
-                    if casename_type == "single":
-                        temp_log, count = single_Parser(log_file, keyword_list, temp_log)  
-                    if casename_type == "notpair":
-                        temp_log, count = notpaired_Parser(log_file, keyword_list, temp_log)
-                    if casename_type == "catch":
-                        temp_log, count, catch_area = catch_Parser(log_file, keyword_list, temp_log)   
-                        catch_text += catch_area
-                    if casename_type == "exclude":
-                        temp_log, count = exclude_Parser(log_file, keyword_list, temp_log)
-
+                    if casetype == "catch":
+                        temp_log, count, catch_text = choose_Parser(log_file, casetype, keyword_list, catch_text)
+                    else:
+                        temp_log, count = choose_Parser(log_file, casetype, keyword_list, catch_text)
+                
             # print output data on the output file
             if temp_log != "":
                 boolean = bool(1)
-                output_file.write('< '+logname+' >  ' + casename_realname +' counting:'+ str(count) +'\n')
-                output_file.write(temp_log)
-                output_file.write('\n\n\n')
-        output_file.close()
+                output_log += ('< '+logname+' >  ' + casename +' counting:'+ str(count) +'\n')
+                output_log += (temp_log + '\n\n\n') 
+        
+        output_logFile(output_target, output_log)
+        output_csvFile(output_target, casetype, catch_text)
         # delete the empty file
         if not boolean == bool(1):
-            os.remove(outputDir+casename_realname+'.log')
-            
-        if casename_type == "catch" and catch_text != "":
-            catch_list = catch_text.split('\n')
-            catch_counting = Counter(catch_list)
-            with open(outputDir+casename_realname+'.csv', 'w') as csv_file:
-                w = csv.writer(csv_file)
-                w.writerows(catch_counting.items())
+            os.remove(outputDir+casename+'.log')
     
 
 
 
 if __name__ == '__main__':
-    logDir, caseDir, outputDir = getDir()
-    sort_log = datetime_Sortfile(logDir)
     main()
 
     
