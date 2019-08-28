@@ -9,33 +9,40 @@ Created on Thu Aug  8 10:32:05 2019
 import os
 
 
-def caseData(case, caseDir):
-    casename ,caseextension = os.path.splitext(case)  # ex: casename=>"single_crash" ; caseextension=>".txt"
-    casename_realname = "_".join(casename.split("_")[1:])  # casename_realname=>"crash"
-    casename_type = "_".join(casename.split("_")[:1])  # casename_type=>"single"
-    casename_type = casename_type.lower() 
+def casedata(case, casedir):
+    case_type_name ,case_extension = os.path.splitext(case)  # ex: case_type_name=>"single_crash" ; case_extension=>".txt"
+    case_name = "_".join(case_type_name.split("_")[1:])  # case_name=>"crash"
+    case_type = "_".join(case_type_name.split("_")[:1]).lower()  # case_type=>"single"
     # temporary storage keywords
     keyword_list = []
-    with open(os.path.join(caseDir,case)) as case_file:
+    with open(os.path.join(casedir,case)) as case_file:
         for line in case_file:
             keyword_list.append(line.strip())
-    return casename_type ,casename_realname, keyword_list
+            
+    return case_type ,case_name, keyword_list
 
 
+def is_priority_file(casedir):
+    priority_file_list = []
+    for casename in os.listdir(casedir):
+        if casename.lower().startswith("priority_"):
+            priority_file_list.append(casename)
 
-def case_Priority(caseDir):
-    # Check whether the file "Priority.txt" is exit 
-    # Create exe_priority according to "Priority.txt"
-    exe_priority = []
-    #priority = re.compile(r'priority(\S*)')
-    if os.path.isfile(os.path.join(caseDir,"Priority.txt")):
-        with open(os.path.join(caseDir,"Priority.txt"),'r') as priority_file:
-            for line in priority_file:
-                exe_priority.append(line.strip())
+    return priority_file_list, (priority_file_list != [])
+
+
+def case_execute_order(casedir, if_priority_exist, priority_file):
+    exe_order = []
+    if if_priority_exist:
+        with open(os.path.join(casedir,priority_file),'r') as case_priority_file:
+            for line in case_priority_file:
+                exe_order.append(line.strip())
     else:
-        if ".DS_Store" in os.listdir(caseDir):
-            exe_priority = os.listdir(caseDir)
-            exe_priority.remove(".DS_Store")
-        else:
-            exe_priority = os.listdir(caseDir)
-    return exe_priority
+        exe_order = os.listdir(casedir)
+        # MacOS needed
+        if ".DS_Store" in exe_order:
+            exe_order.remove(".DS_Store")
+            
+    return exe_order
+
+
