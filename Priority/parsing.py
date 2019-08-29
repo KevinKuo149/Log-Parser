@@ -26,10 +26,9 @@ def choose_parser(log_dict, casetype, keyword_list, time_restriction_in_sec):
 
 def single_parser(log_dict, keyword_list):
     re_log_dict = {}
-    for key in log_dict.keys():  # log_dict.keys() are logfiles' names
+    for key in log_dict:
         temp_log = []
-        for index in range(len(log_dict[key])):   # log_dict[key] is a log_dict key with its all value
-            line = log_dict[key][index]
+        for line in log_dict.get(key):
             for one_keyword in keyword_list:
                 if one_keyword in line:
                     temp_log.append(line)
@@ -44,21 +43,19 @@ def single_parser(log_dict, keyword_list):
 
 def catch_parser(log_dict, keyword_list):
     re_log_dict = {}
-    catch_area = ""  
+    catch_area = []
 
-    for key in log_dict.keys():
+    for key in log_dict:
         temp_log = []
-
-        for index in range(len(log_dict[key])):
-            line = log_dict[key][index]
+        for line in log_dict.get(key):
 
             if keyword_list[0] in line and keyword_list[1] in line:
                 temp_log.append(line)
-                catch_area += (line.split(keyword_list[0])[1].split(keyword_list[1])[0] + keyword_list[1] + '\n')
+                catch_area.append(line.split(keyword_list[0])[1].split(keyword_list[1])[0] + keyword_list[1])
 
         if temp_log != []:
             re_log_dict.update({key:temp_log})
-
+            
     return re_log_dict, catch_area    
 
 
@@ -66,10 +63,9 @@ def catch_parser(log_dict, keyword_list):
 # max memory consumption, log_dict in this function
 def exclude_parser(log_dict, keyword_list):
     re_log_dict = {}
-    for key in log_dict.keys():
+    for key in log_dict:
         temp_log = []
-        for index in range(len(log_dict[key])):
-            line = log_dict[key][index]
+        for line in log_dict.get(key):
             is_include = True
 
             for one_keyword in keyword_list:
@@ -89,10 +85,9 @@ def exclude_parser(log_dict, keyword_list):
 
 def seconds_parser(log_dict, keyword_list, time_restriction_in_sec):
     re_log_dict = {}
-    for key in log_dict.keys():
+    for key in log_dict:
         temp_log = []
-        for index in range(len(log_dict[key])):
-            line = log_dict[key][index]
+        for line in log_dict.get(key):
             if "milli seconds" in line:
                 if int("".join(re.findall(r'(\d*).milli seconds',line))) >= 1000*float(time_restriction_in_sec):
                     temp_log.append(line.strip() + "<< long seconds >>\n")
@@ -114,9 +109,8 @@ def seconds_parser(log_dict, keyword_list, time_restriction_in_sec):
 
 def process_id_collection(log_dict):
     pid_list = []
-    for key in log_dict.keys():
-        for index in range(len(log_dict[key])):
-            line = log_dict[key][index]
+    for key in log_dict:
+        for line in log_dict.get(key):
             pid_match = re.search(r'\[\d*:\d*\]',line)  # [12345:12345]
 
             if pid_match:

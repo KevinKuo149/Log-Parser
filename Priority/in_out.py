@@ -34,7 +34,9 @@ def get_input(argv):
         elif opt in ("-t", "--time_restriction_in_sec"):
             time_restriction_in_sec = float(arg)     # in sec
         elif opt in ("-p", "--is_pid_needed"):
-            is_pid_needed = bool(arg)
+            yes = 'Y'.lower()
+            if arg == yes:
+              is_pid_needed = True
         elif opt == '-h':
             print('python am_log_analyzer.py -l <log address> -c <case address> -o <output address>')
             print('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -')
@@ -51,20 +53,20 @@ def get_input(argv):
             print('Enter the number which is the time restriction of long seconds.\n'
                   'Default restriction time is 1 seconds.\n')
             print('-p :')
-            print('Enter')
+            print("Enter 'Y' to ensure 'PID_TID' is needed.")
             print('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -')
             sys.exit()
     print('Log address is :', logdir)
     print('Case address is :', casedir)
     print('Output address is :', outputdir)
     print('long seconds restriction time :', time_restriction_in_sec, 'seconds')
+    print('is process id needed :', is_pid_needed)
     print()
     return logdir, casedir, outputdir, time_restriction_in_sec, is_pid_needed
 
 
 def output_logfile(output_target, log_dict):
     # output log files
-    #if log_dict != {}:
     if log_dict:
         output_log = ""
         for key in log_dict.keys():
@@ -81,12 +83,11 @@ def output_logfile(output_target, log_dict):
 
 def output_csvfile(output_target, casetype, catch_area):
     # output csv files ＆ count different text
-    if casetype == "catch" and catch_area != "":
-        catch_list = catch_area.split('\n')
-        catch_counting = Counter(catch_list)
+    if casetype == "catch" and catch_area != []:
+        catch_counting = Counter(catch_area)
         with open(output_target+'.csv', 'w') as csv_file:
             w = csv.writer(csv_file)
-            w.writerows(catch_counting.most_common())    
+            w.writerows(catch_counting.most_common())  
 
 
 def output_process_id_csvfile(output_target, process_id_collect):

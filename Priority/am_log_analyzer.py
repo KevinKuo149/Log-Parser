@@ -40,7 +40,7 @@ def main():
                 print('   -- ',case, end = " ... ")
                 casetype, casename, keyword_list = case_pre_process.casedata(case, casedir)
                 output_target = os.path.join(outputdir, priority_file_name)
-                catch_area = ""
+                catch_area = []
 
                 # Ｎo keyword in this case file, skip to next case file.
                 if keyword_list == []:
@@ -61,7 +61,7 @@ def main():
             print('   -- ',case, end = " ... ")
             casetype, casename, keyword_list = case_pre_process.casedata(case, casedir)
             output_target = os.path.join(outputdir,casename)
-            catch_area = ""
+            catch_area = []
 
             # Ｎo keyword in this case file, skip to next case file.
             if keyword_list == []:
@@ -76,7 +76,7 @@ def main():
             in_out.output_csvfile(output_target, casetype, catch_area)
             print("completed.")
 
-    print("<< Parsing is totally successful. >>")      
+    print("<< Parsing is totally successful. >>")
 
 
 if __name__ == '__main__':
