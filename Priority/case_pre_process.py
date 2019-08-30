@@ -38,10 +38,9 @@ def case_execute_order(casedir, if_priority_exist, priority_file):
             for line in case_priority_file:
                 exe_order.append(line.strip())
     else:
-        exe_order = os.listdir(casedir)
-        # MacOS needed
-        if ".DS_Store" in exe_order:
-            exe_order.remove(".DS_Store")
+        for case in os.listdir(casedir):
+            if case.endswith(".txt"):
+                exe_order.append(case)
             
     return exe_order
 

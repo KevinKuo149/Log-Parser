@@ -9,7 +9,7 @@ Created on Thu Aug  8 10:27:11 2019
 import in_out
 import log_pre_process
 import case_pre_process
-import parsing
+import am_log_parser
 
 import os
 import sys
@@ -24,7 +24,7 @@ def main():
     priority_file_list, is_priority_exist = case_pre_process.is_priority_file(casedir)
     
     if is_pid_needed:
-        process_id_collect = parsing.process_id_collection(log_dict)
+        process_id_collect = am_log_parser.process_id_collection(log_dict)
         output_target = os.path.join(outputdir, "PID_TID")
         in_out.output_process_id_csvfile(output_target, process_id_collect)
         
@@ -47,9 +47,9 @@ def main():
                     continue
 
                 if casetype == "catch":
-                    log_dict, catch_area = parsing.choose_parser(log_dict, casetype, keyword_list, time_restriction_in_sec)
+                    log_dict, catch_area = am_log_parser.choose_parser(log_dict, casetype, keyword_list, time_restriction_in_sec)
                 else:
-                    log_dict, _ = parsing.choose_parser(log_dict, casetype, keyword_list, time_restriction_in_sec)   
+                    log_dict, _ = am_log_parser.choose_parser(log_dict, casetype, keyword_list, time_restriction_in_sec)   
                 print("completed.")
 
             in_out.output_logfile(output_target, log_dict)
@@ -68,15 +68,15 @@ def main():
                 continue
 
             if casetype == "catch":
-                re_log_dict, catch_area = parsing.choose_parser(log_dict, casetype, keyword_list, time_restriction_in_sec)
+                re_log_dict, catch_area = am_log_parser.choose_parser(log_dict, casetype, keyword_list, time_restriction_in_sec)
             else:
-                re_log_dict, _ = parsing.choose_parser(log_dict, casetype, keyword_list, time_restriction_in_sec)
+                re_log_dict, _ = am_log_parser.choose_parser(log_dict, casetype, keyword_list, time_restriction_in_sec)
 
             in_out.output_logfile(output_target, re_log_dict)
             in_out.output_csvfile(output_target, casetype, catch_area)
             print("completed.")
 
-    print("<< Parsing is totally successful. >>")
+    print("<< am_log_parser is totally successful. >>")
 
 
 if __name__ == '__main__':

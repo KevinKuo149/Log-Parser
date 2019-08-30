@@ -53,7 +53,8 @@ def get_input(argv):
             print('Enter the number which is the time restriction of long seconds.\n'
                   'Default restriction time is 1 seconds.\n')
             print('-p :')
-            print("Enter 'Y' to ensure 'PID_TID' is needed.")
+            print("Enter 'Y' to ensure 'PID_TID' is needed.\n"
+                  "Default is False. 'PID_TID' won't be output.")
             print('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -')
             sys.exit()
     print('Log address is :', logdir)
@@ -85,7 +86,7 @@ def output_csvfile(output_target, casetype, catch_area):
     # output csv files ＆ count different text
     if casetype == "catch" and catch_area != []:
         catch_counting = Counter(catch_area)
-        with open(output_target+'.csv', 'w') as csv_file:
+        with open(output_target+'.csv', 'w', newline = '') as csv_file:
             w = csv.writer(csv_file)
             w.writerows(catch_counting.most_common())  
 
